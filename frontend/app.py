@@ -1,6 +1,8 @@
 import os
 import streamlit as st
-import requests
+
+from pdf_parser import extract_pdf_text
+from gemini_service import analyze_resume
 
 st.set_page_config(
     page_title="AI Resume & Portfolio Analyzer Agent",
@@ -18,47 +20,51 @@ def get_config(key, default=None):
     return os.environ.get(key, default)
 
 
-BACKEND_URL = get_config("BACKEND_URL", "http://localhost:8000").rstrip("/")
+GEMINI_API_KEY = get_config("GEMINI_API_KEY")
+ACCESS_CODE = get_config("ACCESS_CODE")
+GEMINI_MODEL = get_config("GEMINI_MODEL", "gemini-2.5-flash")
+
+if not GEMINI_API_KEY:
+    st.error(
+        "⚠️ No Gemini API key is configured on this server. "
+        "Add GEMINI_API_KEY under Settings > Secrets on Streamlit Community Cloud, "
+        "or to .streamlit/secrets.toml when running locally."
+    )
+    st.stop()
+
+if not ACCESS_CODE:
+    st.error(
+        "⚠️ No ACCESS_CODE is configured on this server. "
+        "Add ACCESS_CODE under Settings > Secrets on Streamlit Community Cloud, "
+        "or to .streamlit/secrets.toml when running locally."
+    )
+    st.stop()
 
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
-
-if "access_code" not in st.session_state:
-    st.session_state.access_code = ""
 
 if "analyses_used" not in st.session_state:
     st.session_state.analyses_used = 0
 
 if not st.session_state.authenticated:
     st.title("📄 AI Resume & Portfolio Analyzer Agent")
-    st.markdown(
-        "This tool is restricted to authorized group members. "
-        "Enter your group access code to continue."
-    )
-    entered_code = st.text_input("Group access code", type="password")
-
+    st.markdown("This tool is restricted to authorized group members.")
+    entered_code = st.text_input("Enter the group access code", type="password")
     if st.button("Unlock", type="primary"):
-        try:
-            check = requests.get(f"{BACKEND_URL}/api/health", timeout=10)
-            check.raise_for_status()
-        except requests.exceptions.RequestException:
-            st.error("⚠️ Could not reach the backend service. Please try again later.")
-            st.stop()
-
-        st.session_state.access_code = entered_code
-        st.session_state.authenticated = True
-        st.rerun()
-
+        if entered_code == ACCESS_CODE:
+            st.session_state.authenticated = True
+            st.rerun()
+        else:
+            st.error("❌ Incorrect access code.")
     st.stop()
 
 with st.sidebar:
     st.header("⚙️ Session Info")
-    st.success("🔒 Connected to a secured backend. The API key never touches this app.")
-    st.caption(f"Analyses this session: {st.session_state.analyses_used}")
+    st.success("🔒 API key is securely configured on the server.")
+    st.caption(f"Analyses used this session: {st.session_state.analyses_used}")
     st.markdown("---")
     if st.button("Log out"):
         st.session_state.authenticated = False
-        st.session_state.access_code = ""
         st.rerun()
     st.markdown("---")
     st.caption("AI Resume & Portfolio Analyzer Agent v1.0")
@@ -99,100 +105,84 @@ if analyze_clicked:
         st.error("⚠️ Please paste a job description before analyzing.")
     else:
         try:
-            with st.spinner("🤖 Analyzing application..."):
-                files = {
-                    "resume": (
-                        uploaded_resume.name,
-                        uploaded_resume.getvalue(),
-                        "application/pdf",
-                    )
-                }
-                data = {"job_description": job_description}
-                headers = {"X-Access-Code": st.session_state.access_code}
+            with st.spinner("🔍 Extracting resume content..."):
+                resume_text = extract_pdf_text(uploaded_resume.getvalue())
 
-                response = requests.post(
-                    f"{BACKEND_URL}/api/analyze",
-                    files=files,
-                    data=data,
-                    headers=headers,
-                    timeout=120,
-                )
+            with st.spinner("🤖 Analyzing application with Gemini AI..."):
+                analysis_result = analyze_resume(resume_text, job_description, GEMINI_API_KEY, GEMINI_MODEL)
 
-            if response.status_code == 401:
-                st.error("❌ Your access code was rejected by the server. Please log out and try again.")
-            elif response.status_code == 429:
-                st.error("⏳ Rate limit reached. Please wait a while before trying again.")
-            elif response.status_code >= 400:
-                try:
-                    detail = response.json().get("detail", response.text)
-                except ValueError:
-                    detail = response.text
-                st.error(f"⚠️ {detail}")
-            else:
-                analysis_result = response.json()
-                st.session_state.analyses_used += 1
+            st.session_state.analyses_used += 1
 
-                st.success("✅ Analysis complete!")
-                st.markdown("---")
+            st.success("✅ Analysis complete!")
+            st.markdown("---")
 
-                st.subheader("📊 ATS Match Score")
-                match_score = int(analysis_result.get("match_score", 0))
-                match_score = max(0, min(100, match_score))
+            st.subheader("📊 ATS Match Score")
+            match_score = analysis_result.get("match_score", 0)
 
-                score_col1, score_col2 = st.columns([1, 3])
-                with score_col1:
-                    st.metric(label="Match Score", value=f"{match_score}/100")
-                with score_col2:
-                    st.progress(match_score / 100.0)
+            try:
+                match_score = int(match_score)
+            except (ValueError, TypeError):
+                match_score = 0
 
-                st.markdown("---")
+            match_score = max(0, min(100, match_score))
 
-                st.subheader("📝 Candidate Fit Summary")
-                st.write(analysis_result.get("summary", "No summary available."))
+            score_col1, score_col2 = st.columns([1, 3])
+            with score_col1:
+                st.metric(label="Match Score", value=f"{match_score}/100")
+            with score_col2:
+                st.progress(match_score / 100.0)
 
-                st.markdown("---")
+            st.markdown("---")
 
-                output_col1, output_col2 = st.columns(2)
+            st.subheader("📝 Candidate Fit Summary")
+            st.write(analysis_result.get("summary", "No summary available."))
 
-                with output_col1:
-                    st.subheader("🔑 Missing Keywords")
-                    missing_keywords = analysis_result.get("missing_keywords", [])
-                    if missing_keywords:
-                        for keyword in missing_keywords:
-                            st.markdown(f"- {keyword}")
-                    else:
-                        st.info("No significant missing keywords identified.")
+            st.markdown("---")
 
-                with output_col2:
-                    st.subheader("💡 Improvement Suggestions")
-                    improvement_points = analysis_result.get("improvement_bullet_points", [])
-                    if improvement_points:
-                        for point in improvement_points:
-                            st.markdown(f"- {point}")
-                    else:
-                        st.info("No specific improvement suggestions identified.")
+            output_col1, output_col2 = st.columns(2)
 
-                st.markdown("---")
+            with output_col1:
+                st.subheader("🔑 Missing Keywords")
+                missing_keywords = analysis_result.get("missing_keywords", [])
+                if missing_keywords:
+                    for keyword in missing_keywords:
+                        st.markdown(f"- {keyword}")
+                else:
+                    st.info("No significant missing keywords identified.")
 
-                st.subheader("✉️ Tailored Cover Letter")
-                cover_letter_text = analysis_result.get("cover_letter", "")
+            with output_col2:
+                st.subheader("💡 Improvement Suggestions")
+                improvement_points = analysis_result.get("improvement_bullet_points", [])
+                if improvement_points:
+                    for point in improvement_points:
+                        st.markdown(f"- {point}")
+                else:
+                    st.info("No specific improvement suggestions identified.")
 
-                st.text_area(
-                    "Generated Cover Letter",
-                    value=cover_letter_text,
-                    height=350,
-                    key="cover_letter_output"
-                )
+            st.markdown("---")
 
-                st.download_button(
-                    label="⬇️ Download Cover Letter",
-                    data=cover_letter_text,
-                    file_name="Tailored_Cover_Letter.txt",
-                    mime="text/plain",
-                    use_container_width=True,
-                )
+            st.subheader("✉️ Tailored Cover Letter")
+            cover_letter_text = analysis_result.get("cover_letter", "")
 
-        except requests.exceptions.Timeout:
-            st.error("⏳ The request timed out. Please try again.")
-        except requests.exceptions.RequestException as e:
-            st.error(f"❌ Could not reach the backend service: {str(e)}")
+            st.text_area(
+                "Generated Cover Letter",
+                value=cover_letter_text,
+                height=350,
+                key="cover_letter_output"
+            )
+
+            st.download_button(
+                label="⬇️ Download Cover Letter",
+                data=cover_letter_text,
+                file_name="Tailored_Cover_Letter.txt",
+                mime="text/plain",
+                use_container_width=True
+            )
+
+        except ValueError as ve:
+            st.error(f"⚠️ {str(ve)}")
+        except Exception as e:
+            st.error(
+                "❌ An unexpected error occurred while processing your request. "
+                f"Details: {str(e)}"
+            )

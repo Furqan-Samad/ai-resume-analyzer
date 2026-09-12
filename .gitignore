@@ -9,7 +9,7 @@ env/
 
 .env
 .env.local
-.streamlit/secrets.toml
+**/secrets.toml
 
 .DS_Store
 .idea/
