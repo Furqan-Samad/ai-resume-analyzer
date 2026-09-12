@@ -1,3 +1,14 @@
+---
+title: AI Resume & Portfolio Analyzer Agent
+emoji: 📄
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+dockerfile: docker/Dockerfile.backend
+app_port: 8000
+pinned: false
+---
+
 # 📄 AI Resume & Portfolio Analyzer Agent
 
 An AI agent that reads a candidate's resume (PDF), compares it against a target job
