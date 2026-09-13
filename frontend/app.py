@@ -1,5 +1,5 @@
 """
-app.py - AI Resume & Portfolio Analyzer Agent (Command Center Edition)
+app.py - AI Resume & Portfolio Analyzer Agent (Cyber Command Center Edition)
 A futuristic, highly animated developer command center that extracts, analyzes,
 and evaluates candidate resumes and portfolios against target job descriptions.
 
@@ -75,7 +75,7 @@ from parser import extract_text_from_file, clean_text, ParseResult
 # ==============================================================================
 
 st.set_page_config(
-    page_title="ATS // Resume Intelligence Command Center",
+    page_title="CYBER-ATS // Resume Intelligence Command Center",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -930,7 +930,7 @@ if not st.session_state.get("boot_intro_played", False):
     boot_html = """
     <div class="apple-boot-overlay">
         <div class="apple-pulse-orb"></div>
-        <div class="apple-boot-title">ATS // COMMAND</div>
+        <div class="apple-boot-title">CYBER // ATS</div>
     </div>
     """
     boot_placeholder.markdown(boot_html, unsafe_allow_html=True)
@@ -1347,7 +1347,7 @@ def generate_master_report_md(
     improvements_md = "\n".join([f"- {i}" for i in analysis["improvements"]])
 
     report = f"""# 📄 Candidate Resume & Portfolio Diagnostic Report
-*Generated on {timestamp} by ATS Neural Intelligence OS*
+*Generated on {timestamp} by CYBER-ATS Neural Intelligence OS*
 
 ---
 
@@ -1393,7 +1393,7 @@ def generate_master_report_md(
 ```
 
 ---
-*Report generated automatically. Proprietary ATS diagnostic algorithms.*
+*Report generated automatically. Proprietary ATS diagnostic algorithms courtesy of CYBER-ATS.*
 """
     return report.strip()
 
@@ -1467,7 +1467,7 @@ def generate_professional_pdf_report(
     elements = []
 
     # Title & Metadata
-    elements.append(Paragraph('ATS // Resume Diagnostic Audit Report', title_style))
+    elements.append(Paragraph('CYBER-ATS // Resume Diagnostic Audit Report', title_style))
     now_str = datetime.datetime.now().strftime('%B %d, %Y - %H:%M:%S')
     doc_name = result.file_name or "Uploaded Resume"
     elements.append(Paragraph(f'Generated on {now_str} | Candidate File: <b>{doc_name}</b> | Seniority: <b>{role_seniority}</b>', subtitle_style))
@@ -1553,7 +1553,7 @@ with hud_c1:
         """
         <div class="cyber-hud-header">
             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 0.35rem;">
-                <span class="hud-tag">⚡ ATS V2.5</span>
+                <span class="hud-tag">⚡ CYBER-ATS V2.5</span>
                 <span class="hud-live-pill"><span class="hud-live-dot"></span> NEURAL ENGINE ACTIVE</span>
                 <span class="hud-tag" style="background: rgba(6, 182, 212, 0.12); border-color: rgba(6, 182, 212, 0.35); color: #67e8f9;">LATENCY: 14ms</span>
             </div>
@@ -1797,7 +1797,7 @@ with action_col2:
 # ==============================================================================
 
 with st.sidebar:
-    st.markdown("### 🛰️ ATS TELEMETRY")
+    st.markdown("### 🛰️ CYBER-ATS TELEMETRY")
     st.caption("Real-time subsystem status & diagnostic telemetry.")
 
     st.markdown(
@@ -1962,7 +1962,7 @@ if analyze_button:
                             {
                                 "role": "assistant",
                                 "content": (
-                                    f"👋 **ATS AI Agent Online. Indexed dossier `{parse_res.file_name}`.**\n\n"
+                                    f"👋 **CYBER-ATS AI Agent Online. Indexed dossier `{parse_res.file_name}`.**\n\n"
                                     f"Your estimated ATS match score is **{analysis['ats_score']}%**. "
                                     "Ask me to rewrite bullet points using the STAR method, simulate an interview, "
                                     "or explain how to incorporate missing target skills!"
