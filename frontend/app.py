@@ -1,5 +1,5 @@
 """
-app.py - AI Resume & Portfolio Analyzer Agent (Cyber Command Center Edition)
+app.py - AI Resume & Portfolio Analyzer Agent (Command Center Edition)
 A futuristic, highly animated developer command center that extracts, analyzes,
 and evaluates candidate resumes and portfolios against target job descriptions.
 
@@ -14,6 +14,8 @@ Features:
 - Granular ATS Scoring: Hard Skills, Keyword Density & Relevancy, Document Formatting.
 - Visual Sub-Score Chart: Altair graphical breakdown with dark-mode cyberpunk styling.
 - Official Gemini API Integration: google-genai SDK for live deep evaluation and chat.
+- Automated API Key Resolution: Gemini API key is auto-detected from Streamlit secrets
+  or environment variables (GEMINI_API_KEY), with manual entry as a fallback.
 - Interactive Mock Interview Simulator: Live Q&A, STAR grading, and tailored follow-ups.
 - Multi-Format Diagnostic Reports: Downloadable Markdown (.md) and Publication-Grade PDF (ReportLab).
 - Instant Reset & Session Reboot: Clear state & re-upload without browser reloads.
@@ -24,6 +26,7 @@ from __future__ import annotations
 import datetime
 import io
 import json
+import os
 import re
 import time
 from typing import Dict, List, Optional, Set, Tuple
@@ -72,7 +75,7 @@ from parser import extract_text_from_file, clean_text, ParseResult
 # ==============================================================================
 
 st.set_page_config(
-    page_title="CYBER-ATS // Resume Intelligence Command Center",
+    page_title="ATS // Resume Intelligence Command Center",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -927,7 +930,7 @@ if not st.session_state.get("boot_intro_played", False):
     boot_html = """
     <div class="apple-boot-overlay">
         <div class="apple-pulse-orb"></div>
-        <div class="apple-boot-title">CYBER // ATS</div>
+        <div class="apple-boot-title">ATS // COMMAND</div>
     </div>
     """
     boot_placeholder.markdown(boot_html, unsafe_allow_html=True)
@@ -935,6 +938,35 @@ if not st.session_state.get("boot_intro_played", False):
     st.session_state["boot_intro_played"] = True
     boot_placeholder.empty()
     st.rerun()
+
+
+def get_gemini_api_key() -> str:
+    """
+    Automates Gemini API key resolution so the user never has to paste a key manually
+    when one is already configured for the deployment.
+
+    Resolution order:
+    1. Streamlit secrets (`st.secrets["GEMINI_API_KEY"]`) - recommended for Streamlit
+       Community Cloud / secrets.toml deployments.
+    2. Environment variable `GEMINI_API_KEY` - recommended for Docker / server deployments.
+    3. Environment variable `GOOGLE_API_KEY` - fallback, matches the google-genai SDK default.
+
+    Returns an empty string if no key could be automatically resolved, in which case the
+    UI falls back to a manual input field.
+    """
+    # 1. Streamlit secrets
+    try:
+        if hasattr(st, "secrets"):
+            secret_val = st.secrets.get("GEMINI_API_KEY", "") if hasattr(st.secrets, "get") else ""
+            if secret_val:
+                return str(secret_val).strip()
+    except Exception:
+        pass
+
+    # 2 & 3. Environment variables
+    env_val = os.environ.get("GEMINI_API_KEY", "").strip() or os.environ.get("GOOGLE_API_KEY", "").strip()
+    return env_val
+
 
 if "app_persona" not in st.session_state:
     st.session_state["app_persona"] = "👤 Candidate Dossier"
@@ -955,7 +987,11 @@ if "uploader_key" not in st.session_state:
 if "model_choice" not in st.session_state:
     st.session_state["model_choice"] = "⚡ Fast Heuristic"
 if "api_key" not in st.session_state:
-    st.session_state["api_key"] = ""
+    # Automatically pick up the Gemini API key (secrets / env var) instead of requiring
+    # the user to type it in manually. Falls back to an empty string if none is configured.
+    st.session_state["api_key"] = get_gemini_api_key()
+if "api_key_auto_detected" not in st.session_state:
+    st.session_state["api_key_auto_detected"] = bool(st.session_state["api_key"])
 if "role_seniority" not in st.session_state:
     st.session_state["role_seniority"] = "Senior / Lead"
 if "chat_messages" not in st.session_state:
@@ -979,6 +1015,9 @@ def reset_session_state():
     st.session_state["mock_question_index"] = 0
     st.session_state["uploader_key"] += 1
     st.session_state["boot_intro_played"] = True
+    # Re-resolve the API key automatically on reboot as well, in case secrets/env changed.
+    st.session_state["api_key"] = get_gemini_api_key()
+    st.session_state["api_key_auto_detected"] = bool(st.session_state["api_key"])
     st.toast("System reboot complete. Memory cleared & ready for new payload!", icon="🔄")
 
 
@@ -1308,7 +1347,7 @@ def generate_master_report_md(
     improvements_md = "\n".join([f"- {i}" for i in analysis["improvements"]])
 
     report = f"""# 📄 Candidate Resume & Portfolio Diagnostic Report
-*Generated on {timestamp} by CYBER-ATS Neural Intelligence OS*
+*Generated on {timestamp} by ATS Neural Intelligence OS*
 
 ---
 
@@ -1354,7 +1393,7 @@ def generate_master_report_md(
 ```
 
 ---
-*Report generated automatically. Proprietary ATS diagnostic algorithms courtesy of CYBER-ATS.*
+*Report generated automatically. Proprietary ATS diagnostic algorithms.*
 """
     return report.strip()
 
@@ -1428,7 +1467,7 @@ def generate_professional_pdf_report(
     elements = []
 
     # Title & Metadata
-    elements.append(Paragraph('CYBER-ATS // Resume Diagnostic Audit Report', title_style))
+    elements.append(Paragraph('ATS // Resume Diagnostic Audit Report', title_style))
     now_str = datetime.datetime.now().strftime('%B %d, %Y - %H:%M:%S')
     doc_name = result.file_name or "Uploaded Resume"
     elements.append(Paragraph(f'Generated on {now_str} | Candidate File: <b>{doc_name}</b> | Seniority: <b>{role_seniority}</b>', subtitle_style))
@@ -1514,7 +1553,7 @@ with hud_c1:
         """
         <div class="cyber-hud-header">
             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 0.35rem;">
-                <span class="hud-tag">⚡ CYBER-ATS V2.5</span>
+                <span class="hud-tag">⚡ ATS V2.5</span>
                 <span class="hud-live-pill"><span class="hud-live-dot"></span> NEURAL ENGINE ACTIVE</span>
                 <span class="hud-tag" style="background: rgba(6, 182, 212, 0.12); border-color: rgba(6, 182, 212, 0.35); color: #67e8f9;">LATENCY: 14ms</span>
             </div>
@@ -1599,24 +1638,48 @@ with ctrl_c4:
     )
 
 # Gemini API Key Drawer (if Gemini API Mode is selected)
+# The API key is now resolved automatically from Streamlit secrets or environment
+# variables (GEMINI_API_KEY / GOOGLE_API_KEY). Manual entry is only shown as a fallback
+# for local/dev sessions where no key has been configured for the deployment.
 if "Gemini" in st.session_state.get("model_choice", ""):
     st.markdown("<div style='height: 8px;'></div>", unsafe_allow_html=True)
-    api_col1, api_col2 = st.columns([3, 1])
-    with api_col1:
-        api_key_input = st.text_input(
-            "Gemini API Key (Optional)",
-            value=st.session_state.get("api_key", ""),
-            type="password",
-            placeholder="Enter AIzaSy... or leave blank for automatic heuristic fallback",
-            help="Your key stays secure in local session state. If empty, local neural heuristic rules are executed."
+
+    auto_detected_key = get_gemini_api_key()
+
+    if auto_detected_key:
+        # Key found automatically -- no manual input required.
+        st.session_state["api_key"] = auto_detected_key
+        st.session_state["api_key_auto_detected"] = True
+        api_key_input = auto_detected_key
+        st.markdown(
+            "<span class='hud-live-pill'><span class='hud-live-dot'></span> "
+            "LIVE GEMINI CONNECTED (AUTO-DETECTED KEY)</span>",
+            unsafe_allow_html=True
         )
-        st.session_state["api_key"] = api_key_input
-    with api_col2:
-        st.markdown("<div style='height: 26px;'></div>", unsafe_allow_html=True)
-        if api_key_input.strip():
-            st.markdown("<span class='hud-live-pill' style='font-size: 0.78rem;'><span class='hud-live-dot'></span> LIVE GEMINI CONNECTED</span>", unsafe_allow_html=True)
-        else:
-            st.caption("⚡ Heuristic fallback armed")
+        st.caption("🔐 API key auto-resolved from Streamlit secrets / environment variables. No manual entry needed.")
+    else:
+        # No key configured for the deployment -- fall back to manual entry.
+        st.session_state["api_key_auto_detected"] = False
+        api_col1, api_col2 = st.columns([3, 1])
+        with api_col1:
+            api_key_input = st.text_input(
+                "Gemini API Key (Optional)",
+                value=st.session_state.get("api_key", ""),
+                type="password",
+                placeholder="Enter AIzaSy... or configure GEMINI_API_KEY in secrets/env for auto-connect",
+                help=(
+                    "No API key was auto-detected. Set GEMINI_API_KEY (or GOOGLE_API_KEY) in "
+                    "Streamlit secrets or as an environment variable to skip this step automatically. "
+                    "If left blank here, the local heuristic engine is used instead."
+                )
+            )
+            st.session_state["api_key"] = api_key_input
+        with api_col2:
+            st.markdown("<div style='height: 26px;'></div>", unsafe_allow_html=True)
+            if api_key_input.strip():
+                st.markdown("<span class='hud-live-pill' style='font-size: 0.78rem;'><span class='hud-live-dot'></span> LIVE GEMINI CONNECTED</span>", unsafe_allow_html=True)
+            else:
+                st.caption("⚡ Heuristic fallback armed")
 else:
     api_key_input = ""
 
@@ -1734,7 +1797,7 @@ with action_col2:
 # ==============================================================================
 
 with st.sidebar:
-    st.markdown("### 🛰️ CYBER-ATS TELEMETRY")
+    st.markdown("### 🛰️ ATS TELEMETRY")
     st.caption("Real-time subsystem status & diagnostic telemetry.")
 
     st.markdown(
@@ -1750,8 +1813,11 @@ with st.sidebar:
             <div style="font-size: 0.76rem; color: {'#34d399' if _HAS_REPORTLAB else '#94a3b8'}; margin-bottom: 4px;">
                 ● ReportLab PDF: {'ONLINE' if _HAS_REPORTLAB else 'OFFLINE'}
             </div>
-            <div style="font-size: 0.76rem; color: {'#34d399' if _HAS_GOOGLE_GENAI else '#94a3b8'};">
+            <div style="font-size: 0.76rem; color: {'#34d399' if _HAS_GOOGLE_GENAI else '#94a3b8'}; margin-bottom: 4px;">
                 ● Google GenAI: {'AVAILABLE' if _HAS_GOOGLE_GENAI else 'OFFLINE'}
+            </div>
+            <div style="font-size: 0.76rem; color: {'#34d399' if st.session_state.get('api_key_auto_detected') else '#94a3b8'};">
+                ● Gemini API Key: {'AUTO-DETECTED' if st.session_state.get('api_key_auto_detected') else 'NOT CONFIGURED'}
             </div>
         </div>
         """,
@@ -1896,7 +1962,7 @@ if analyze_button:
                             {
                                 "role": "assistant",
                                 "content": (
-                                    f"👋 **CYBER-ATS AI Agent Online. Indexed dossier `{parse_res.file_name}`.**\n\n"
+                                    f"👋 **ATS AI Agent Online. Indexed dossier `{parse_res.file_name}`.**\n\n"
                                     f"Your estimated ATS match score is **{analysis['ats_score']}%**. "
                                     "Ask me to rewrite bullet points using the STAR method, simulate an interview, "
                                     "or explain how to incorporate missing target skills!"
